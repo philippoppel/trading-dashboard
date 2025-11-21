@@ -1,21 +1,30 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import fs from 'fs'
-import path from 'path'
+import { head, list } from '@vercel/blob'
 
-export default function handler(
+export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Path to state file - adjust this to point to your trading bot state
-  const statePath = path.join(process.cwd(), '..', 'data', 'trading_state', 'safe_multi_symbol_state.json')
-
   try {
-    if (!fs.existsSync(statePath)) {
-      return res.status(404).json({ error: 'State file not found. Start the trading bot first.' })
+    const token = process.env.BLOB_READ_WRITE_TOKEN
+
+    if (!token) {
+      console.error('BLOB_READ_WRITE_TOKEN not configured')
+      return res.status(500).json({ error: 'Blob storage not configured' })
     }
 
-    const stateData = fs.readFileSync(statePath, 'utf-8')
-    const state = JSON.parse(stateData)
+    const { blobs } = await list({
+      token,
+      prefix: 'trading-state.json',
+    })
+
+    if (blobs.length === 0) {
+      return res.status(404).json({ error: 'State not found. Upload state data first.' })
+    }
+
+    const latestBlob = blobs[0]
+    const response = await fetch(latestBlob.url)
+    const state = await response.json()
 
     // Calculate additional metrics
     const traders = state.traders || {}
