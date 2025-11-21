@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { list } from '@vercel/blob'
+import { getLatestState } from '../../lib/blobState'
 
 interface TradeRecord {
   timestamp: string
@@ -33,18 +33,7 @@ export default async function handler(
       return res.status(500).json({ error: 'Blob storage not configured' })
     }
 
-    const { blobs } = await list({
-      token,
-      prefix: 'trading-state.json',
-    })
-
-    if (blobs.length === 0) {
-      return res.status(404).json({ error: 'State not found. Upload state data first.' })
-    }
-
-    const latestBlob = blobs[0]
-    const response = await fetch(latestBlob.url)
-    const state = await response.json()
+    const state = await getLatestState(token)
 
     // Extract trade history from all traders
     const allTrades: TradeRecord[] = []

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { head, list } from '@vercel/blob'
+import { getLatestState } from '../../lib/blobState'
 
 export default async function handler(
   req: NextApiRequest,
@@ -13,18 +13,7 @@ export default async function handler(
       return res.status(500).json({ error: 'Blob storage not configured' })
     }
 
-    const { blobs } = await list({
-      token,
-      prefix: 'trading-state.json',
-    })
-
-    if (blobs.length === 0) {
-      return res.status(404).json({ error: 'State not found. Upload state data first.' })
-    }
-
-    const latestBlob = blobs[0]
-    const response = await fetch(latestBlob.url)
-    const state = await response.json()
+    const state = await getLatestState(token)
 
     // Calculate additional metrics
     const traders = state.traders || {}
@@ -41,7 +30,8 @@ export default async function handler(
       const portfolioValue = trader.balance + trader.position_value
       totalValue += portfolioValue
       totalFees += trader.total_fees
-      totalTrades += trader.num_trades
+      const tradeCount = (trader.trade_history?.length ?? trader.num_trades ?? 0)
+      totalTrades += tradeCount
 
       const ret = (portfolioValue / initialBalance - 1) * 100
       returns.push(ret)
@@ -57,9 +47,9 @@ export default async function handler(
     const sharpe = stdDev > 0 ? avgReturn / stdDev : 0
 
     // Calculate drawdown
-    const maxValues = symbols.map(s => traders[s].highest_value)
+    const maxValues = symbols.map(s => traders[s].highest_value ?? traders[s].balance + traders[s].position_value)
     const currentValues = symbols.map(s => traders[s].balance + traders[s].position_value)
-    const totalMax = maxValues.reduce((a, b) => a + b, 0)
+    const totalMax = Math.max(maxValues.reduce((a, b) => a + b, 0), 1e-6)
     const totalCurrent = currentValues.reduce((a, b) => a + b, 0)
     const drawdown = (totalCurrent / totalMax - 1) * 100
 

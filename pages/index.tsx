@@ -10,6 +10,7 @@ interface Trader {
   num_trades: number
   current_price: number
   max_loss_reached: boolean
+  trade_history?: TradeRecord[]
 }
 
 interface TradingState {
@@ -64,6 +65,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(true)
   const [historyLimit, setHistoryLimit] = useState(20)
+  const [lastStateError, setLastStateError] = useState<string | null>(null)
 
   const fetchState = async () => {
     try {
@@ -74,8 +76,13 @@ export default function Dashboard() {
       const data = await response.json()
       setState(data)
       setError(null)
+      setLastStateError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      setLastStateError(message)
+      if (!state) {
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -96,13 +103,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchState()
-    fetchHistory()
-    // Refresh every 3 seconds
-    const interval = setInterval(() => {
-      fetchState()
-      fetchHistory()
-    }, 3000)
-    return () => clearInterval(interval)
+    // Stagger history fetch slightly to avoid double load spikes
+    const historyTimeout = setTimeout(() => fetchHistory(), 500)
+
+    const stateInterval = setInterval(() => fetchState(), 5000)
+    const historyInterval = setInterval(() => fetchHistory(), 7000)
+
+    return () => {
+      clearTimeout(historyTimeout)
+      clearInterval(stateInterval)
+      clearInterval(historyInterval)
+    }
   }, [])
 
   if (loading) {
@@ -116,7 +127,7 @@ export default function Dashboard() {
     )
   }
 
-  if (error || !state) {
+  if (!state) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-md">
@@ -169,6 +180,11 @@ export default function Dashboard() {
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Last updated: {new Date(state.timestamp).toLocaleString()}
+            {lastStateError && (
+              <span className="ml-2 text-sm text-red-500">
+                (verbindung zuletzt fehlerhaft: {lastStateError})
+              </span>
+            )}
           </p>
         </div>
 
@@ -284,7 +300,9 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-500">{trader.num_trades} trades</span>
+                      <span className="text-gray-500 dark:text-gray-500">
+                        {(trader.trade_history?.length ?? trader.num_trades).toLocaleString()} trades
+                      </span>
                       <span className="text-gray-500 dark:text-gray-500">${trader.total_fees.toFixed(2)} fees</span>
                     </div>
                   </div>
