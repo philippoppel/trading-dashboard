@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { getLatestState } from '../../lib/blobState'
+import { getLocalState } from '../../lib/localState'
 
 export default async function handler(
   req: NextApiRequest,
@@ -7,13 +8,19 @@ export default async function handler(
 ) {
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN
+    const useLocal = process.env.USE_LOCAL_STATE === 'true'
 
-    if (!token) {
-      console.error('BLOB_READ_WRITE_TOKEN not configured')
-      return res.status(500).json({ error: 'Blob storage not configured' })
+    let state
+
+    if (useLocal || !token) {
+      // Use local file system
+      console.log('Using local state file')
+      state = await getLocalState()
+    } else {
+      // Use Vercel Blob
+      console.log('Using Vercel Blob storage')
+      state = await getLatestState(token)
     }
-
-    const state = await getLatestState(token)
 
     // Calculate additional metrics
     const traders = state.traders || {}
@@ -30,7 +37,8 @@ export default async function handler(
       const portfolioValue = trader.balance + trader.position_value
       totalValue += portfolioValue
       totalFees += trader.total_fees
-      const tradeCount = (trader.trade_history?.length ?? trader.num_trades ?? 0)
+      // Always use trade_history length if available for consistency
+      const tradeCount = trader.trade_history?.length ?? 0
       totalTrades += tradeCount
 
       const ret = (portfolioValue / initialBalance - 1) * 100

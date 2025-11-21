@@ -106,8 +106,8 @@ export default function Dashboard() {
     // Stagger history fetch slightly to avoid double load spikes
     const historyTimeout = setTimeout(() => fetchHistory(), 500)
 
-    const stateInterval = setInterval(() => fetchState(), 5000)
-    const historyInterval = setInterval(() => fetchHistory(), 7000)
+    const stateInterval = setInterval(() => fetchState(), 10000)
+    const historyInterval = setInterval(() => fetchHistory(), 12000)
 
     return () => {
       clearTimeout(historyTimeout)
@@ -301,7 +301,7 @@ export default function Dashboard() {
 
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500 dark:text-gray-500">
-                        {(trader.trade_history?.length ?? trader.num_trades).toLocaleString()} trades
+                        {(trader.trade_history?.length ?? 0).toLocaleString()} trades
                       </span>
                       <span className="text-gray-500 dark:text-gray-500">${trader.total_fees.toFixed(2)} fees</span>
                     </div>
@@ -441,7 +441,7 @@ export default function Dashboard() {
         {/* Footer */}
         <div className="max-w-7xl mx-auto mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
           <p>Session started: {new Date(state.session_start_time).toLocaleString()}</p>
-          <p className="mt-2">Auto-refreshes every 3 seconds</p>
+          <p className="mt-2">Auto-refreshes every 10 seconds</p>
         </div>
       </div>
     </>

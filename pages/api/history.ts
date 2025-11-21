@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { getLatestState } from '../../lib/blobState'
+import { getLocalState } from '../../lib/localState'
 
 interface TradeRecord {
   timestamp: string
@@ -27,13 +28,17 @@ export default async function handler(
 ) {
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN
+    const useLocal = process.env.USE_LOCAL_STATE === 'true'
 
-    if (!token) {
-      console.error('BLOB_READ_WRITE_TOKEN not configured')
-      return res.status(500).json({ error: 'Blob storage not configured' })
+    let state
+
+    if (useLocal || !token) {
+      // Use local file system
+      state = await getLocalState()
+    } else {
+      // Use Vercel Blob
+      state = await getLatestState(token)
     }
-
-    const state = await getLatestState(token)
 
     // Extract trade history from all traders
     const allTrades: TradeRecord[] = []
