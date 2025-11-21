@@ -35,7 +35,7 @@ Create a `.env.local` file in your trading bot directory:
 ```bash
 # In /Users/philippoppel/Desktop/traidingbot/
 
-export VERCEL_DASHBOARD_URL="https://trading-dashboard-5oqf34l8u-philipps-projects-0f51423d.vercel.app"
+export VERCEL_DASHBOARD_URL="https://trading-dashboard-three-virid.vercel.app"
 export UPLOAD_API_KEY="your-secret-key-here"  # Same as in Vercel
 ```
 
@@ -70,7 +70,7 @@ Or run continuous sync (uploads every 30 seconds):
 
 ## Verifying Everything Works
 
-1. Check your dashboard: https://trading-dashboard-5oqf34l8u-philipps-projects-0f51423d.vercel.app
+1. Check your dashboard: https://trading-dashboard-three-virid.vercel.app
 2. Run the upload script
 3. Refresh the dashboard - you should see your trading data!
 
