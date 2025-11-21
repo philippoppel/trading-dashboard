@@ -31,10 +31,39 @@ interface TradingState {
   }
 }
 
+interface TradeRecord {
+  timestamp: string
+  symbol: string
+  action_type: string
+  old_position: number
+  new_position: number
+  position_change: number
+  price: number
+  trade_value: number
+  fee: number
+  slippage: number
+  total_cost: number
+  balance_before: number
+  balance_after: number
+  portfolio_value_before: number
+  portfolio_value_after: number
+  reasoning: string
+  model_action: number
+}
+
+interface TradeHistoryData {
+  trades: TradeRecord[]
+  total_count: number
+  last_updated: string
+}
+
 export default function Dashboard() {
   const [state, setState] = useState<TradingState | null>(null)
+  const [history, setHistory] = useState<TradeHistoryData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showHistory, setShowHistory] = useState(true)
+  const [historyLimit, setHistoryLimit] = useState(20)
 
   const fetchState = async () => {
     try {
@@ -52,10 +81,27 @@ export default function Dashboard() {
     }
   }
 
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch('/api/history')
+      if (!response.ok) {
+        throw new Error('Failed to fetch trade history')
+      }
+      const data = await response.json()
+      setHistory(data)
+    } catch (err) {
+      console.error('Error fetching history:', err)
+    }
+  }
+
   useEffect(() => {
     fetchState()
+    fetchHistory()
     // Refresh every 10 seconds
-    const interval = setInterval(fetchState, 10000)
+    const interval = setInterval(() => {
+      fetchState()
+      fetchHistory()
+    }, 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -246,6 +292,132 @@ export default function Dashboard() {
               )
             })}
           </div>
+        </div>
+
+        {/* Trade History */}
+        <div className="max-w-7xl mx-auto mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Trading History</h2>
+            <div className="flex items-center gap-4">
+              <select
+                value={historyLimit}
+                onChange={(e) => setHistoryLimit(Number(e.target.value))}
+                className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 rounded px-3 py-1"
+              >
+                <option value={10}>Last 10</option>
+                <option value={20}>Last 20</option>
+                <option value={50}>Last 50</option>
+                <option value={100}>Last 100</option>
+                <option value={9999}>All</option>
+              </select>
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                {showHistory ? 'Hide' : 'Show'} History
+              </button>
+            </div>
+          </div>
+
+          {showHistory && history && history.trades.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Zeit
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Symbol
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Aktion
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Position
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Preis
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Wert
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Gebühren
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        P&L
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Begründung
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {history.trades.slice(0, historyLimit).map((trade, idx) => {
+                      const pnl = trade.portfolio_value_after - trade.portfolio_value_before
+                      const pnlPct = (pnl / trade.portfolio_value_before) * 100
+
+                      const actionColor = {
+                        'BUY': 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900',
+                        'SELL': 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900',
+                        'SHORT': 'text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900',
+                        'COVER': 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900',
+                        'STOP_LOSS': 'text-red-700 dark:text-red-300 bg-red-200 dark:bg-red-800',
+                        'TAKE_PROFIT': 'text-green-700 dark:text-green-300 bg-green-200 dark:bg-green-800',
+                      }[trade.action_type] || 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900'
+
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {new Date(trade.timestamp).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                            {trade.symbol}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${actionColor}`}>
+                              {trade.action_type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                            {trade.old_position.toFixed(2)} → {trade.new_position.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                            ${trade.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                            ${trade.trade_value.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500 dark:text-gray-400">
+                            ${trade.total_cost.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold">
+                            <span className={getReturnColor(pnl)}>
+                              {pnl > 0 ? '+' : ''}{pnl.toFixed(2)} ({pnlPct > 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate">
+                            {trade.reasoning}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                Zeige {Math.min(historyLimit, history.trades.length)} von {history.total_count} Trades
+              </div>
+            </div>
+          )}
+
+          {showHistory && history && history.trades.length === 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+              <p className="text-gray-600 dark:text-gray-400">Noch keine Trades ausgeführt</p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
