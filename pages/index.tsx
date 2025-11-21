@@ -97,11 +97,11 @@ export default function Dashboard() {
   useEffect(() => {
     fetchState()
     fetchHistory()
-    // Refresh every 10 seconds
+    // Refresh every 3 seconds
     const interval = setInterval(() => {
       fetchState()
       fetchHistory()
-    }, 10000)
+    }, 3000)
     return () => clearInterval(interval)
   }, [])
 
@@ -423,7 +423,7 @@ export default function Dashboard() {
         {/* Footer */}
         <div className="max-w-7xl mx-auto mt-8 text-center text-gray-600 dark:text-gray-400 text-sm">
           <p>Session started: {new Date(state.session_start_time).toLocaleString()}</p>
-          <p className="mt-2">Auto-refreshes every 10 seconds</p>
+          <p className="mt-2">Auto-refreshes every 3 seconds</p>
         </div>
       </div>
     </>
